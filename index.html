@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музика емоцій — Інтерактивна гра</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@500;700&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #a8edd9 0%, #fed6e3 100%);
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        .font-heading {
+            font-family: 'Comfortaa', cursive;
+        }
+
+        /* Анімації персонажа */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(1deg); }
+        }
+
+        @keyframes bounce-happy {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.05); }
+        }
+
+        @keyframes shake-sad {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        @keyframes pulse-gently {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+        }
+
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        .animate-happy { animation: bounce-happy 0.6s ease infinite; }
+        .animate-sad { animation: shake-sad 0.5s ease-in-out; }
+        .animate-pulse-slow { animation: pulse-gently 2s ease-in-out infinite; }
+
+        /* Градієнтні кнопки */
+        .btn-emotion {
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-emotion:hover:not(:disabled) {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-emotion:active:not(:disabled) {
+            transform: translateY(2px) scale(0.98);
+        }
+
+        /* Пульсуюча хвиля під час звучання */
+        .sound-wave {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 30px;
+        }
+
+        .sound-wave span {
+            width: 6px;
+            height: 100%;
+            background-color: #3b82f6;
+            border-radius: 3px;
+            animation: wave 1s ease-in-out infinite;
+        }
+
+        .sound-wave span:nth-child(2) { animation-delay: 0.2s; }
+        .sound-wave span:nth-child(3) { animation-delay: 0.4s; }
+        .sound-wave span:nth-child(4) { animation-delay: 0.6s; }
+
+        @keyframes wave {
+            0%, 100% { height: 8px; }
+            50% { height: 28px; }
+        }
+
+        /* Canvas для конфеті */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen p-4 sm:p-6 overflow-x-hidden">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Шапка гри -->
+    <header class="w-full max-w-4xl text-center mb-2">
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-black text-indigo-900 font-heading drop-shadow-sm">
+            🎵 Музика емоцій 🎶
+        </h1>
+        <p class="text-lg sm:text-xl text-indigo-700 font-semibold mt-1">
+            Послухай музику та вгадай, який у неї настрій!
+        </p>
+    </header>
+
+    <!-- Головна ігрова зона -->
+    <main class="w-full max-w-4xl bg-white/80 backdrop-blur-md rounded-3xl p-4 sm:p-8 shadow-2xl border-4 border-white flex flex-col items-center relative my-auto">
+        
+        <!-- Індикатор прогресу -->
+        <div class="w-full flex items-center justify-between mb-4 px-2">
+            <span id="level-indicator" class="text-base sm:text-lg font-bold text-indigo-800 bg-indigo-100 px-4 py-1.5 rounded-full border border-indigo-200">
+                Завдання 1 / 5
+            </span>
+            <div class="flex gap-1.5" id="progress-stars">
+                <!-- Зірочки додаються через JS -->
+            </div>
+        </div>
+
+        <!-- Центральний блок з Ведмедиком та підказкою -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 w-full items-center mb-6">
+            
+            <!-- Анімований ведмедик SVG -->
+            <div class="md:col-span-5 flex flex-col items-center justify-center">
+                <div id="bear-container" class="w-48 h-48 sm:w-56 sm:h-56 animate-float relative cursor-pointer" onclick="playCurrentEmotionSound()">
+                    <!-- SVG Ведмедик -->
+                    <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-xl">
+                        <!-- Вушка -->
+                        <circle cx="50" cy="50" r="25" fill="#8B4513"/>
+                        <circle cx="50" cy="50" r="14" fill="#D2B48C"/>
+                        <circle cx="150" cy="50" r="25" fill="#8B4513"/>
+                        <circle cx="150" cy="50" r="14" fill="#D2B48C"/>
+                        
+                        <!-- Голова -->
+                        <circle cx="100" cy="100" r="75" fill="#A0522D"/>
+                        
+                        <!-- Мордочка -->
+                        <ellipse cx="100" cy="120" rx="35" ry="25" fill="#F5DEB3"/>
+                        <ellipse cx="100" cy="108" rx="14" ry="10" fill="#2D1810"/>
+                        
+                        <!-- Очі та рот (динамічні в JS) -->
+                        <g id="bear-eyes">
+                            <circle cx="75" cy="85" r="8" fill="#2D1810"/>
+                            <circle cx="125" cy="85" r="8" fill="#2D1810"/>
+                            <circle cx="73" cy="82" r="3" fill="#FFF"/>
+                            <circle cx="123" cy="82" r="3" fill="#FFF"/>
+                        </g>
+
+                        <!-- Брови -->
+                        <g id="bear-brows" stroke="#2D1810" stroke-width="3" stroke-linecap="round">
+                            <line x1="65" y1="72" x2="85" y2="72"/>
+                            <line x1="115" y1="72" x2="135" y2="72"/>
+                        </g>
+                        
+                        <path id="bear-mouth" d="M 88 126 Q 100 138 112 126" stroke="#2D1810" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+                        <!-- Сопілочка / Маракас в лапці -->
+                        <g transform="rotate(-15 140 130)">
+                            <rect x="140" y="110" width="40" height="12" rx="4" fill="#FFD700" stroke="#B8860B" stroke-width="2"/>
+                            <circle cx="145" cy="116" r="2" fill="#000"/>
+                            <circle cx="155" cy="116" r="2" fill="#000"/>
+                            <circle cx="165" cy="116" r="2" fill="#000"/>
+                        </g>
+                    </svg>
+
+                    <!-- Значок "Натисни, щоб послухати" -->
+                    <div class="absolute -bottom-2 bg-yellow-400 text-yellow-950 font-black text-xs px-3 py-1 rounded-full border-2 border-white shadow-md flex items-center gap-1">
+                        <span>🔊 Послухати ще раз</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Двостороння мова (Хмарка з діалогом) -->
+            <div class="md:col-span-7 flex flex-col justify-center">
+                <div class="bg-indigo-50 border-3 border-indigo-200 rounded-3xl p-5 sm:p-6 shadow-inner relative min-h-[140px] flex flex-col justify-center">
+                    <p id="speech-text" class="text-indigo-950 font-bold text-lg sm:text-xl leading-relaxed text-center">
+                        Привіт, мій юний друже! 🐻 Увімкни музичний фрагмент і підкажи мені, який у нього настрій!
+                    </p>
+                    
+                    <!-- Індикатор відтворення audio -->
+                    <div id="playing-indicator" class="hidden flex-col items-center justify-center mt-3">
+                        <div class="sound-wave mb-1">
+                            <span></span><span></span><span></span><span></span>
+                        </div>
+                        <span class="text-xs font-bold text-blue-600">Музика лунає... 🎶</span>
+                    </div>
+                </div>
+
+                <!-- Головна кнопка "Слухати мелодію" -->
+                <button id="play-btn" onclick="playCurrentEmotionSound()" 
+                        class="mt-4 w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-black text-xl py-4 px-6 rounded-2xl shadow-lg border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-3">
+                    <span class="text-2xl">▶️</span> СЛУХАТИ МЕЛОДІЮ
+                </button>
+            </div>
+        </div>
+
+        <!-- Кнопки вибору емоцій -->
+        <div id="emotions-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 w-full">
+            <!-- Кнопки будуть генеритися або керуватися JS -->
+            <button onclick="checkAnswer('joy')" class="btn-emotion bg-gradient-to-b from-yellow-300 to-amber-400 text-amber-950 font-black text-lg p-4 rounded-2xl border-2 border-yellow-200 flex flex-col items-center gap-2">
+                <span class="text-4xl">😃</span>
+                <span>Радість</span>
+            </button>
+
+            <button onclick="checkAnswer('sadness')" class="btn-emotion bg-gradient-to-b from-blue-300 to-indigo-400 text-indigo-950 font-black text-lg p-4 rounded-2xl border-2 border-blue-200 flex flex-col items-center gap-2">
+                <span class="text-4xl">😢</span>
+                <span>Сум</span>
+            </button>
+
+            <button onclick="checkAnswer('calm')" class="btn-emotion bg-gradient-to-b from-emerald-300 to-teal-400 text-teal-950 font-black text-lg p-4 rounded-2xl border-2 border-teal-200 flex flex-col items-center gap-2">
+                <span class="text-4xl">😌</span>
+                <span>Спокій</span>
+            </button>
+
+            <button onclick="checkAnswer('surprise')" class="btn-emotion bg-gradient-to-b from-purple-300 to-pink-400 text-purple-950 font-black text-lg p-4 rounded-2xl border-2 border-purple-200 flex flex-col items-center gap-2">
+                <span class="text-4xl">😮</span>
+                <span>Здивування</span>
+            </button>
+
+            <button onclick="checkAnswer('fear')" class="btn-emotion bg-gradient-to-b from-gray-400 to-slate-600 text-white font-black text-lg p-4 rounded-2xl border-2 border-gray-300 flex flex-col items-center gap-2 col-span-2 sm:col-span-1">
+                <span class="text-4xl">😨</span>
+                <span>Страх</span>
+            </button>
+        </div>
+
+        <!-- Фінальний екран (прихований за замовчуванням) -->
+        <div id="final-screen" class="hidden absolute inset-0 bg-white/95 backdrop-blur-lg rounded-3xl p-6 sm:p-10 flex-col items-center justify-center text-center z-20">
+            <div class="text-6xl sm:text-7xl mb-4 animate-bounce">🏆🐻🎉</div>
+            <h2 class="text-3xl sm:text-5xl font-black text-indigo-900 font-heading mb-4 leading-tight">
+                Молодець!<br><span class="text-amber-500">Ти навчився розпізнавати емоції в музиці!</span>
+            </h2>
+            <p class="text-lg sm:text-2xl text-gray-700 mb-8 max-w-xl font-semibold">
+                Тепер ти знаєш, що темп, ритм і звучання інструментів можуть розказувати цілі історії навіть без слів!
+            </p>
+            <button onclick="restartGame()" class="bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-500 hover:to-emerald-700 text-white font-black text-2xl py-4 px-10 rounded-2xl shadow-xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all">
+                🎮 Грати знову
+            </button>
+        </div>
+    </main>
+
+    <!-- Підвал -->
+    <footer class="mt-4 text-center text-xs sm:text-sm font-semibold text-indigo-900/70">
+        Інтерактивна навчальна гра для початкових класів • НУШ
+    </footer>
+
+    <!-- Скрипт синтезу аудіо та логіки гри -->
+    <script>
+        // Data structure for emotions & musical elements
+        const EMOTIONS = {
+            joy: {
+                id: 'joy',
+                title: 'Радість 😃',
+                explanation: 'Радісна музика зазвичай має швидкий темп, дзвінкі високі ноти та мажорний (веселий) лад!',
+                eyes: `<circle cx="75" cy="85" r="8" fill="#2D1810"/><circle cx="125" cy="85" r="8" fill="#2D1810"/><path d="M 68 78 Q 75 70 82 78" stroke="#2D1810" stroke-width="3" fill="none"/><path d="M 118 78 Q 125 70 132 78" stroke="#2D1810" stroke-width="3" fill="none"/>`,
+                brows: `<line x1="65" y1="68" x2="85" y2="72"/><line x1="115" y1="72" x2="135" y2="68"/>`,
+                mouth: `M 75 120 Q 100 150 125 120 Z`
+            },
+            sadness: {
+                id: 'sadness',
+                title: 'Сум 😢',
+                explanation: 'Сумна музика звучить повільно, плавно і тихіше. Вній переважають мінорні (тужливі) акорди.',
+                eyes: `<circle cx="75" cy="88" r="7" fill="#2D1810"/><circle cx="125" cy="88" r="7" fill="#2D1810"/><path d="M 122 95 Q 120 105 124 110" stroke="#3b82f6" stroke-width="3" fill="none"/>`,
+                brows: `<line x1="65" y1="76" x2="85" y2="68"/><line x1="115" y1="68" x2="135" y2="76"/>`,
+                mouth: `M 80 135 Q 100 115 120 135`
+            },
+            calm: {
+                id: 'calm',
+                title: 'Спокій 😌',
+                explanation: 'Спокійна музика має помірний темп, ніжне перебирання нот і плавний ритм, як у колисковій.',
+                eyes: `<path d="M 67 85 Q 75 93 83 85" stroke="#2D1810" stroke-width="4" fill="none"/><path d="M 117 85 Q 125 93 133 85" stroke="#2D1810" stroke-width="4" fill="none"/>`,
+                brows: `<line x1="65" y1="72" x2="85" y2="72"/><line x1="115" y1="72" x2="135" y2="72"/>`,
+                mouth: `M 85 125 Q 100 133 115 125`
+            },
+            surprise: {
+                id: 'surprise',
+                title: 'Здивування 😮',
+                explanation: 'Музика здивування сповнена несподіваних раптових стрибків нот, стаккато (уривчастих звуків) та швидких пасажів!',
+                eyes: `<circle cx="75" cy="85" r="10" fill="#2D1810"/><circle cx="125" cy="85" r="10" fill="#2D1810"/><circle cx="72" cy="82" r="4" fill="#FFF"/><circle cx="122" cy="82" r="4" fill="#FFF"/>`,
+                brows: `<line x1="65" y1="62" x2="85" y2="65"/><line x1="115" y1="65" x2="135" y2="62"/>`,
+                mouth: `M 100 118 A 10 14 0 1 0 100 142 A 10 14 0 1 0 100 118`
+            },
+            fear: {
+                id: 'fear',
+                title: 'Страх 😨',
+                explanation: 'Музика страху або тривоги звучить із дисонансними (неузгодженими) низькими акордами, тремоло та тривожним пульсом.',
+                eyes: `<circle cx="75" cy="85" r="6" fill="#2D1810"/><circle cx="125" cy="85" r="6" fill="#2D1810"/>`,
+                brows: `<line x1="65" y1="68" x2="85" y2="78"/><line x1="115" y1="78" x2="135" y2="68"/>`,
+                mouth: `M 80 130 Q 88 122 96 130 T 112 130 T 120 130`
+            }
+        };
+
+        // Game State Variables
+        let sequence = [];
+        let currentIndex = 0;
+        let isAudioPlaying = false;
+        let score = 0;
+
+        // Web Audio API Context setup
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // --- SYNTHESIZER SOUND GENERATORS (Web Audio API) ---
+        
+        function playJoyMusic() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            
+            // Major arpeggio notes (C5, E5, G5, C6) fast tempo pizzicato style
+            const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51];
+            notes.forEach((freq, index) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + index * 0.14);
+                
+                gain.gain.setValueAtTime(0, now + index * 0.14);
+                gain.gain.linearRampToValueAtTime(0.3, now + index * 0.14 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.14 + 0.35);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(now + index * 0.14);
+                osc.stop(now + index * 0.14 + 0.4);
+            });
+        }
+
+        function playSadnessMusic() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            
+            // Slow minor chord progression (A minor)
+            const chords = [
+                [220.00, 261.63, 329.63], // A3, C4, E4
+                [174.61, 220.00, 261.63]  // F3, A3, C4
+            ];
+
+            chords.forEach((chord, cIdx) => {
+                chord.forEach(freq => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + cIdx * 1.4);
+                    
+                    gain.gain.setValueAtTime(0, now + cIdx * 1.4);
+                    gain.gain.linearRampToValueAtTime(0.15, now + cIdx * 1.4 + 0.4);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + cIdx * 1.4 + 1.35);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    
+                    osc.start(now + cIdx * 1.4);
+                    osc.stop(now + cIdx * 1.4 + 1.4);
+                });
+            });
+        }
+
+        function playCalmMusic() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            
+            // Soft sine wave lullaby arpeggio (Pentatonic G major)
+            const notes = [392.00, 440.00, 493.88, 587.33, 659.25, 587.33, 493.88, 392.00];
+            notes.forEach((freq, index) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + index * 0.3);
+                
+                gain.gain.setValueAtTime(0, now + index * 0.3);
+                gain.gain.linearRampToValueAtTime(0.18, now + index * 0.3 + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.3 + 0.5);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(now + index * 0.3);
+                osc.stop(now + index * 0.3 + 0.55);
+            });
+        }
+
+        function playSurpriseMusic() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            
+            // Rapid staccato scale jump up + unexpected high note
+            const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 1567.98]; // C4, E4, G4, C5, E5, G6!
+            notes.forEach((freq, index) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = index === notes.length - 1 ? 'square' : 'triangle';
+                const startTime = now + (index === notes.length - 1 ? 0.6 : index * 0.08);
+                
+                osc.frequency.setValueAtTime(freq, startTime);
+                
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(index === notes.length - 1 ? 0.35 : 0.2, startTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + (index === notes.length - 1 ? 0.5 : 0.12));
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(startTime);
+                osc.stop(startTime + 0.55);
+            });
+        }
+
+        function playFearMusic() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            
+            // Low dissonant cluster with tremolo pulse
+            const freqs = [110.00, 116.54, 123.47]; // Low A2, A#2, B2 clash!
+            
+            freqs.forEach(freq => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, now);
+                
+                // Tremolo effect using LFO
+                const lfo = ctx.createOscillator();
+                lfo.frequency.setValueAtTime(8, now); // 8 Hz pulse
+                const lfoGain = ctx.createGain();
+                lfoGain.gain.setValueAtTime(0.08, now);
+                
+                lfo.connect(gain.gain);
+                
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                lfo.start(now);
+                osc.start(now);
+                
+                lfo.stop(now + 2.0);
+                osc.stop(now + 2.0);
+            });
+        }
+
+        function playFanfare() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            const notes = [
+                { f: 523.25, t: 0, d: 0.15 },
+                { f: 523.25, t: 0.15, d: 0.15 },
+                { f: 523.25, t: 0.30, d: 0.15 },
+                { f: 659.25, t: 0.45, d: 0.40 },
+                { f: 783.99, t: 0.85, d: 0.15 },
+                { f: 1046.50, t: 1.00, d: 0.80 }
+            ];
+
+            notes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(n.f, now + n.t);
+                
+                gain.gain.setValueAtTime(0, now + n.t);
+                gain.gain.linearRampToValueAtTime(0.3, now + n.t + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(now + n.t);
+                osc.stop(now + n.t + n.d + 0.05);
+            });
+        }
+
+        function playFeedbackSound(isCorrect) {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            if (isCorrect) {
+                // High happy chime
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            } else {
+                // Gentle try again tone
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(260, now);
+                osc.frequency.linearRampToValueAtTime(200, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            }
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        }
+
+        // --- GAME LOGIC ---
+
+        function initGame() {
+            const emotionKeys = Object.keys(EMOTIONS);
+            // Shuffle array
+            sequence = [...emotionKeys].sort(() => Math.random() - 0.5);
+            currentIndex = 0;
+            score = 0;
+            
+            updateProgressStars();
+            loadQuestion();
+            document.getElementById('final-screen').classList.add('hidden');
+            document.getElementById('final-screen').classList.remove('flex');
+        }
+
+        function updateProgressStars() {
+            const starsContainer = document.getElementById('progress-stars');
+            starsContainer.innerHTML = '';
+            for (let i = 0; i < sequence.length; i++) {
+                const star = document.createElement('span');
+                star.className = 'text-xl sm:text-2xl transition-all duration-300';
+                if (i < currentIndex) {
+                    star.textContent = '⭐';
+                } else {
+                    star.textContent = '⚪';
+                }
+                starsContainer.appendChild(star);
+            }
+            document.getElementById('level-indicator').textContent = `Завдання ${currentIndex + 1} / ${sequence.length}`;
+        }
+
+        function loadQuestion() {
+            setBearExpression('default');
+            const speechText = document.getElementById('speech-text');
+            speechText.innerHTML = `Натисни кнопку <b>«СЛУХАТИ МЕЛОДІЮ»</b> 🎶 та здогадайся, що вона виражає!`;
+            
+            updateProgressStars();
+            enableButtons(true);
+        }
+
+        function getCurrentEmotionKey() {
+            return sequence[currentIndex];
+        }
+
+        function playCurrentEmotionSound() {
+            if (isAudioPlaying) return;
+
+            const emotionKey = getCurrentEmotionKey();
+            isAudioPlaying = true;
+            
+            document.getElementById('playing-indicator').classList.remove('hidden');
+            document.getElementById('playing-indicator').classList.add('flex');
+            document.getElementById('play-btn').disabled = true;
+
+            let duration = 2000; // default duration in ms
+
+            switch (emotionKey) {
+                case 'joy':
+                    playJoyMusic();
+                    duration = 1500;
+                    break;
+                case 'sadness':
+                    playSadnessMusic();
+                    duration = 2800;
+                    break;
+                case 'calm':
+                    playCalmMusic();
+                    duration = 2600;
+                    break;
+                case 'surprise':
+                    playSurpriseMusic();
+                    duration = 1400;
+                    break;
+                case 'fear':
+                    playFearMusic();
+                    duration = 2200;
+                    break;
+            }
+
+            setTimeout(() => {
+                isAudioPlaying = false;
+                document.getElementById('playing-indicator').classList.add('hidden');
+                document.getElementById('playing-indicator').classList.remove('flex');
+                document.getElementById('play-btn').disabled = false;
+            }, duration);
+        }
+
+        function checkAnswer(selectedEmotion) {
+            const correctEmotion = getCurrentEmotionKey();
+            const bearContainer = document.getElementById('bear-container');
+            const speechText = document.getElementById('speech-text');
+
+            if (selectedEmotion === correctEmotion) {
+                // Correct answer!
+                playFeedbackSound(true);
+                setBearExpression(correctEmotion);
+                
+                bearContainer.classList.add('animate-happy');
+                setTimeout(() => bearContainer.classList.remove('animate-happy'), 1200);
+
+                const data = EMOTIONS[correctEmotion];
+                speechText.innerHTML = `<span class="text-green-600 font-extrabold text-xl sm:text-2xl block mb-1">Правильно! Це ${data.title}!</span> ${data.explanation}`;
+                
+                enableButtons(false);
+                score++;
+
+                setTimeout(() => {
+                    currentIndex++;
+                    if (currentIndex < sequence.length) {
+                        loadQuestion();
+                    } else {
+                        showFinalScreen();
+                    }
+                }, 3800);
+
+            } else {
+                // Wrong answer
+                playFeedbackSound(false);
+                setBearExpression('sadness');
+                
+                bearContainer.classList.add('animate-sad');
+                setTimeout(() => bearContainer.classList.remove('animate-sad'), 600);
+
+                speechText.innerHTML = `<span class="text-amber-700 font-bold text-lg">Хмм, майже! 🧐</span> Спробуй послухати мелодію ще раз та зверни увагу на темп і висоту нот!`;
+            }
+        }
+
+        function setBearExpression(emotionKey) {
+            const eyesGroup = document.getElementById('bear-eyes');
+            const browsGroup = document.getElementById('bear-brows');
+            const mouthPath = document.getElementById('bear-mouth');
+
+            if (emotionKey === 'default') {
+                eyesGroup.innerHTML = `<circle cx="75" cy="85" r="8" fill="#2D1810"/><circle cx="125" cy="85" r="8" fill="#2D1810"/><circle cx="73" cy="82" r="3" fill="#FFF"/><circle cx="123" cy="82" r="3" fill="#FFF"/>`;
+                browsGroup.innerHTML = `<line x1="65" y1="72" x2="85" y2="72"/><line x1="115" y1="72" x2="135" y2="72"/>`;
+                mouthPath.setAttribute('d', 'M 88 126 Q 100 138 112 126');
+                return;
+            }
+
+            const data = EMOTIONS[emotionKey];
+            if (data) {
+                eyesGroup.innerHTML = data.eyes;
+                browsGroup.innerHTML = data.brows;
+                mouthPath.setAttribute('d', data.mouth);
+            }
+        }
+
+        function enableButtons(enable) {
+            const buttons = document.querySelectorAll('#emotions-grid button');
+            buttons.forEach(btn => {
+                btn.disabled = !enable;
+                if (!enable) {
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+        }
+
+        function showFinalScreen() {
+            playFanfare();
+            startConfetti();
+            const finalScreen = document.getElementById('final-screen');
+            finalScreen.classList.remove('hidden');
+            finalScreen.classList.add('flex');
+        }
+
+        function restartGame() {
+            stopConfetti();
+            initGame();
+        }
+
+        // --- SIMPLE CONFETTI CANVAS SYSTEM ---
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let confettiAnimationId = null;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function startConfetti() {
+            particles = [];
+            const colors = ['#f43f5e', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 10 + 6,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vy: Math.random() * 3 + 2,
+                    vx: Math.random() * 2 - 1,
+                    rot: Math.random() * 360,
+                    rotSpeed: Math.random() * 6 - 3
+                });
+            }
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.y += p.vy;
+                p.x += p.vx;
+                p.rot += p.rotSpeed;
+                
+                if (p.y > canvas.height) {
+                    p.y = -20;
+                    p.x = Math.random() * canvas.width;
+                }
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rot * Math.PI) / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+            });
+            confettiAnimationId = requestAnimationFrame(animateConfetti);
+        }
+
+        function stopConfetti() {
+            if (confettiAnimationId) {
+                cancelAnimationFrame(confettiAnimationId);
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Initialize on Load
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
